@@ -1,0 +1,43 @@
+{
+  "contract_type": "lease",
+  "original": {
+    "title": "RESIDENTIAL LEASE AGREEMENT",
+    "date": "February 10, 2024",
+    "sections": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+    ]
+  },
+  "amendment": {
+    "title": "AMENDMENT TO RESIDENTIAL LEASE AGREEMENT",
+    "date": "February 04, 2025",
+    "sections": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+    ]
+  },
+  "changes": [
+    {
+      "section": "5",
+      "type": "modified",
+      "description": "Changed utility split: Landlord now covers water/sewer/trash; added provision for unusual utility cost sharing"
+    },
+    {
+      "section": "4",
+      "type": "modified",
+      "description": "Deposit reduced from $7,276 to $5,457; added interest-bearing requirement; shortened return period to 21 days; added itemization requirement"
+    }
+  ]
+}

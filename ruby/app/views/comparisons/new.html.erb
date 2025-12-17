@@ -1,0 +1,33 @@
+<div class="max-w-2xl mx-auto p-6">
+  <h1 class="text-3xl font-bold mb-6">New Contract Comparison</h1>
+
+  <%= form_with model: @comparison, class: "space-y-6" do |form| %>
+    <% if @comparison.errors.any? %>
+      <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+        <h2 class="text-red-800 font-semibold"><%= pluralize(@comparison.errors.count, "error") %> prohibited this comparison:</h2>
+        <ul class="list-disc list-inside text-red-700 mt-2">
+          <% @comparison.errors.full_messages.each do |message| %>
+            <li><%= message %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <div class="space-y-2">
+      <%= form.label :original_document, "Original Contract", class: "block text-sm font-medium text-gray-700" %>
+      <%= form.file_field :original_document, accept: "image/*,.pdf", class: "block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" %>
+      <p class="text-sm text-gray-500">Upload the original contract document (image or PDF)</p>
+    </div>
+
+    <div class="space-y-2">
+      <%= form.label :amendment_document, "Amendment Document", class: "block text-sm font-medium text-gray-700" %>
+      <%= form.file_field :amendment_document, accept: "image/*,.pdf", class: "block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" %>
+      <p class="text-sm text-gray-500">Upload the amendment document (image or PDF)</p>
+    </div>
+
+    <div class="flex gap-4">
+      <%= form.submit "Compare Contracts", class: "bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-6 rounded-lg cursor-pointer" %>
+      <%= link_to "Cancel", comparisons_path, class: "bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-2 px-6 rounded-lg" %>
+    </div>
+  <% end %>
+</div>

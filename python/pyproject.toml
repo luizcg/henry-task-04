@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "contract-comparison-agent"
+version = "0.1.0"
+description = "Autonomous Contract Comparison and Change Extraction Agent"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "openai>=1.40.0",
+    "pydantic>=2.0.0",
+    "langfuse>=2.0.0",
+    "python-dotenv>=1.0.0",
+    "pillow>=10.0.0",
+    "typer>=0.9.0",
+    "reportlab>=4.0.0",
+    "pdf2image>=1.16.0",
+    "opencv-python>=4.8.0",
+    "numpy>=1.24.0",
+    "faker>=20.0.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+]
+
+[project.scripts]
+contract-agent = "src.main:app"
+generate-contracts = "tools.generate_contracts:app"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*", "tools*", "tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

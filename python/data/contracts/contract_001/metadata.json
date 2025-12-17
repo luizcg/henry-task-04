@@ -1,0 +1,48 @@
+{
+  "contract_type": "employment",
+  "original": {
+    "title": "EMPLOYMENT AGREEMENT",
+    "date": "October 14, 2024",
+    "sections": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+    ]
+  },
+  "amendment": {
+    "title": "AMENDMENT TO EMPLOYMENT AGREEMENT",
+    "date": "May 21, 2025",
+    "sections": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+    ]
+  },
+  "changes": [
+    {
+      "section": "5",
+      "type": "modified",
+      "description": "Notice period extended from 30 to 60 days and added severance policy"
+    },
+    {
+      "section": "7",
+      "type": "modified",
+      "description": "Non-compete reduced from 12 to 6 months, radius reduced from 50 to 25 miles, added exception for termination without cause"
+    },
+    {
+      "section": "3",
+      "type": "modified",
+      "description": "Salary increased from $75,000 to $95,000 and added 15% performance bonus"
+    }
+  ]
+}

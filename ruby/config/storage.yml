@@ -1,0 +1,26 @@
+test:
+  service: Disk
+  root: <%= Rails.root.join("tmp/storage") %>
+
+local:
+  service: Disk
+  root: <%= Rails.root.join("storage") %>
+
+amazon_dev:
+  service: S3
+  access_key_id: <%= ENV["AWS_ACCESS_KEY_ID"] %>
+  secret_access_key: <%= ENV["AWS_SECRET_ACCESS_KEY"] %>
+  region: <%= ENV.fetch("AWS_REGION", "us-east-1") %>
+  bucket: contract-comparison-dev-20251214
+  http_open_timeout: 15
+  http_read_timeout: 30
+  ssl_verify_peer: false
+
+amazon_prod:
+  service: S3
+  access_key_id: <%= ENV["AWS_ACCESS_KEY_ID"] %>
+  secret_access_key: <%= ENV["AWS_SECRET_ACCESS_KEY"] %>
+  region: <%= ENV.fetch("AWS_REGION", "us-east-1") %>
+  bucket: contract-comparison-prod-20251214
+  http_open_timeout: 15
+  http_read_timeout: 30

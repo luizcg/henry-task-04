@@ -1,0 +1,43 @@
+{
+  "contract_type": "nda",
+  "original": {
+    "title": "NON-DISCLOSURE AGREEMENT",
+    "date": "May 06, 2024",
+    "sections": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+    ]
+  },
+  "amendment": {
+    "title": "AMENDMENT TO NON-DISCLOSURE AGREEMENT",
+    "date": "April 22, 2025",
+    "sections": [
+      "1",
+      "2",
+      "3",
+      "4",
+      "5",
+      "6",
+      "7",
+      "8"
+    ]
+  },
+  "changes": [
+    {
+      "section": "1",
+      "type": "modified",
+      "description": "Expanded scope to include source code, algorithms, product roadmaps, and M&A plans; added presumption of confidentiality"
+    },
+    {
+      "section": "6",
+      "type": "modified",
+      "description": "Added exception allowing retention of archival copy for legal compliance"
+    }
+  ]
+}
