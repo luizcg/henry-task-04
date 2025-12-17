@@ -45,6 +45,8 @@ pickle-email-*.html
 /tmp/*
 !/log/.keep
 !/tmp/.keep
+ruby/tmp/
+ruby/log/
 
 # Rails storage
 /storage/*
