@@ -28,7 +28,7 @@ flowchart TB
         Amendment["Amendment<br/>(PNG/JPG)"]
     end
 
-    subgraph Parser["🔍 Image Parser (GPT-4o)"]
+    subgraph Parser["🔍 Image Parser (GPT-5.2)"]
         OCR["OCR via Multimodal LLM"]
         Structure["Preserve Document Structure"]
         Handwriting["Handle Scanned/Handwritten"]
@@ -258,7 +258,7 @@ python/
 │   ├── __init__.py
 │   ├── main.py                 # CLI entry point & Typer app
 │   ├── models.py               # Pydantic models for validation
-│   ├── image_parser.py         # Multimodal image processing (GPT-4o)
+│   ├── image_parser.py         # Multimodal image processing (GPT-5.2)
 │   ├── tracing.py              # Langfuse integration & observability
 │   └── agents/
 │       ├── __init__.py
@@ -353,7 +353,7 @@ classDiagram
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `OPENAI_API_KEY` | Yes | OpenAI API key with GPT-4o/GPT-5.2 access |
+| `OPENAI_API_KEY` | Yes | OpenAI API key with GPT-5.2 access |
 | `LANGFUSE_PUBLIC_KEY` | Yes | Langfuse public key |
 | `LANGFUSE_SECRET_KEY` | Yes | Langfuse secret key |
 | `LANGFUSE_HOST` | No | Langfuse host (default: cloud.langfuse.com) |

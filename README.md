@@ -29,7 +29,7 @@ Legal compliance teams spend **40+ hours weekly** manually comparing contracts a
 
 This platform automates contract comparison using a **multi-agent AI system** that:
 
-1. **Parses scanned documents** using multimodal LLMs (GPT-4o/GPT-5.2)
+1. **Parses scanned documents** using multimodal LLMs (GPT-5.2)
 2. **Analyzes document structure** and identifies corresponding sections
 3. **Extracts specific changes** with detailed summaries
 4. **Validates output** ensuring data quality for downstream systems
@@ -65,7 +65,7 @@ flowchart TB
 
     subgraph Python["🐍 Python AI Backend"]
         subgraph Pipeline["Multi-Agent Processing Pipeline"]
-            Parser["🔍 Image Parser<br/>(GPT-4o)"]
+            Parser["🔍 Image Parser<br/>(GPT-5.2)"]
             Agent1["🤖 Agent 1<br/>Contextualize"]
             Agent2["🤖 Agent 2<br/>Extract Changes"]
             Validator["✅ Pydantic<br/>Validation"]
@@ -118,7 +118,7 @@ flowchart LR
     Job -->|"POST /compare"| API
     Job -->|"GET /progress"| API
     API --> Agents
-    Agents -->|"GPT-4o"| OpenAI
+    Agents -->|"GPT-5.2"| OpenAI
     Agents -->|"traces"| LF
     Job -->|"broadcast"| Cable
     S3 -->|"pre-signed URL"| API
