@@ -119,20 +119,13 @@ class TracingContext:
         This handler can be passed to LangChain components to automatically
         trace all LLM calls, chains, and agent executions.
         
+        The handler automatically inherits the current trace context from
+        the propagate_attributes context manager.
+        
         Returns:
             LangfuseCallbackHandler configured with current trace context
         """
-        return LangfuseCallbackHandler(
-            session_id=self.session_id,
-            user_id=self.contract_pair_id,
-            trace_id=self._trace_id,
-            tags=["contract_comparison", "langchain"],
-            metadata={
-                "contract_pair_id": self.contract_pair_id,
-                "timestamp": self.timestamp,
-                **self.metadata,
-            },
-        )
+        return LangfuseCallbackHandler(update_trace=True)
 
 
 def create_trace(
