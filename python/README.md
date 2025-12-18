@@ -15,9 +15,18 @@
 
 ## Overview
 
-A multi-agent system that compares scanned contract images (original and amendment) using multimodal LLMs and extracts structured change information. The system uses two collaborative agents: one for contextualization and another for change extraction, with complete observability through Langfuse tracing.
+A multi-agent system that compares scanned contract images (original and amendment) using multimodal LLMs and extracts structured change information. The system uses two collaborative agents with an explicit handoff mechanism: one for contextualization and another for change extraction, with complete observability through Langfuse tracing.
 
 This solution addresses the challenge faced by legal compliance teams who spend 40+ hours weekly manually comparing contracts. By automating the comparison process with AI agents, the system reduces errors, increases throughput, and provides consistent, structured outputs that integrate with downstream legal systems.
+
+### Key Features
+
+- **Multimodal Image Parsing**: Uses GPT-5.2 vision capabilities to extract text from contract images with base64 encoding, preserving document hierarchy (sections, subsections, clauses)
+- **Two-Agent Collaboration**: Distinct agents with explicit handoff—Agent 1's contextualization output feeds directly into Agent 2's extraction process
+- **Pydantic-Validated Output**: Strict schema enforcement with three guaranteed fields: `sections_changed`, `topics_touched`, and `summary_of_the_change`
+- **Full Observability**: Every step traced in Langfuse with hierarchical spans, token counts, and latency metrics
+- **Robust Error Handling**: Graceful handling of API failures, invalid images, and validation errors with meaningful error messages
+- **Flexible Image Quality**: Handles scanned documents, photographs, and various resolutions
 
 ## Architecture
 
@@ -99,13 +108,17 @@ sequenceDiagram
 
 ### Why Two Agents?
 
-The two-agent architecture mirrors how legal analysts work:
+The two-agent architecture mirrors how legal analysts work and provides significant advantages over a single-agent approach:
 
-1. **Agent 1 (Contextualization)**: First understands the full context - document structure, section organization, and how the two documents relate. This provides a foundation for accurate change detection.
+1. **Agent 1 (Contextualization)**: First understands the full context—document structure, section organization, and how the two documents relate. It identifies corresponding sections between the original and amendment, creating a mapping that serves as the foundation for accurate change detection. Output: `ContextualizationResult` with document structures and section relationships.
 
-2. **Agent 2 (Extraction)**: Uses Agent 1's contextual understanding to precisely identify and describe changes. Without context, changes might be misinterpreted or missed.
+2. **Agent 2 (Extraction)**: Receives Agent 1's contextual analysis as input and uses it to precisely identify and describe changes. Without this context, changes might be misinterpreted or missed entirely. For example, a section number change ("Section 5" → "Section 6") would be incorrectly flagged as a content change without understanding the document restructuring.
 
-This separation of concerns improves accuracy and makes the system easier to debug and optimize.
+The explicit handoff mechanism (Agent 1 output → Agent 2 input) ensures that:
+- Each agent has a single, well-defined responsibility
+- Debugging is straightforward—you can inspect the handoff data
+- The system is easier to optimize (improve contextualization without touching extraction)
+- Traces clearly show the sequential flow: Image Parsing → Agent 1 → Agent 2 → Validation
 
 ## Setup
 
@@ -237,11 +250,27 @@ All agent operations are traced with Langfuse for observability and debugging.
 
 ### What's Traced
 
-Each trace includes:
-- **Image Parsing**: Both original and amendment parsing with token usage
-- **Agent 1 Execution**: Contextualization with input/output and latency
-- **Agent 2 Execution**: Extraction with full context from Agent 1
-- **Validation**: Final schema validation step
+Each trace shows a clear hierarchy with parent and child spans:
+
+```
+📦 contract_comparison (parent trace)
+├── 🔍 parse_original_contract
+│   └── input: image_path, output: DocumentStructure, tokens: 1,234
+├── 🔍 parse_amendment_contract  
+│   └── input: image_path, output: DocumentStructure, tokens: 1,456
+├── 🤖 agent_contextualize
+│   └── input: both structures, output: ContextualizationResult, latency: 2.3s
+├── 🤖 agent_extract_changes
+│   └── input: contextualization, output: ContractChangeResult, latency: 1.8s
+└── ✅ pydantic_validation
+    └── input: raw result, output: validated result
+```
+
+Each span includes:
+- **Input/Output Data**: Full visibility into what each step receives and produces
+- **Token Usage**: For cost tracking and optimization
+- **Latency**: Identify performance bottlenecks
+- **Metadata**: session_id (contract_id), timestamp, model version
 
 ### Debugging Tips
 
@@ -323,11 +352,13 @@ classDiagram
 
 | Decision | Rationale |
 |----------|-----------|
-| **GPT-5.2** | Superior multimodal capabilities for document parsing. Handles various scan qualities, handwriting, and complex table structures. |
-| **Two-Agent Architecture** | Mirrors legal analyst workflow. Separation of concerns improves accuracy and debuggability. |
-| **Pydantic v2** | Schema enforcement ensures downstream systems receive consistent, valid data. Field constraints catch incomplete extractions early. |
-| **Langfuse** | Native Python support, generous free tier, detailed token/cost tracking for production planning. |
-| **Typer CLI** | Modern CLI framework with automatic help generation and type hints support. |
+| **GPT-5.2 Multimodal** | Best-in-class vision capabilities for document parsing. Correctly handles scanned documents, photographs, handwritten annotations, and complex table structures. Uses base64 image encoding for reliable API integration. |
+| **Two-Agent Architecture** | Single-agent approaches struggle with complex contract comparisons because they try to understand context and extract changes simultaneously. Our two-agent design separates these concerns: Agent 1 builds understanding, Agent 2 uses it. This mirrors how human legal analysts work and produces more accurate results. |
+| **Explicit Agent Handoff** | Agent 1's output (`ContextualizationResult`) is passed directly as input to Agent 2. This explicit data flow makes the system debuggable and ensures Agent 2 always has the context it needs. |
+| **Pydantic v2** | Schema enforcement with exactly three output fields (`sections_changed`, `topics_touched`, `summary_of_the_change`) ensures downstream systems receive consistent, valid data. Validation errors are caught early with meaningful messages. |
+| **Langfuse Tracing** | Every step is traced with hierarchical spans, enabling full observability. Native Python decorator support (`@observe`) makes integration seamless. Token/cost tracking enables production planning. |
+| **Environment Variables** | All API keys loaded via `os.getenv()` with no hardcoded secrets. Configuration is externalized for security and flexibility across environments. |
+| **Type Hints Throughout** | All functions include type annotations (e.g., `def parse_image(path: str) -> DocumentStructure`) for better IDE support and self-documenting code. |
 
 ## API Reference
 

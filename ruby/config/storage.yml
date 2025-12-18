@@ -24,3 +24,4 @@ amazon_prod:
   bucket: contract-comparison-prod-20251214
   http_open_timeout: 15
   http_read_timeout: 30
+  ssl_verify_peer: false
