@@ -7,10 +7,10 @@ import typer
 from pydantic import ValidationError
 from dotenv import load_dotenv
 
-from src.image_parser import parse_contract_image
-from src.agents.contextualization_agent import run_contextualization_agent
-from src.agents.extraction_agent import run_extraction_agent
-from src.models import ProcessingResult, ContractChangeResult
+from src.services.contract_comparison_service import ContractComparisonService
+from src.infrastructure.parsers.factory import ParserFactory
+from src.infrastructure.agents.factory import AgentFactory
+from src.domain.models import ProcessingResult, ContractChangeResult
 from src.tracing import create_trace, flush_traces
 
 load_dotenv()
@@ -38,107 +38,34 @@ def process_contracts(
     """
     contract_id = contract_id or str(uuid.uuid4())
     
-    # Create hierarchical trace with metadata
-    with create_trace(
-        name="contract_comparison",
-        session_id=contract_id,
-        contract_pair_id=contract_id,
-        metadata={
-            "original_image": original_image_path,
-            "amendment_image": amendment_image_path,
-        },
-    ) as trace:
-        try:
-            # Step 1: Parse original contract
-            typer.echo(f"[1/5] Parsing original contract: {original_image_path}")
-            with trace.span("parse_original_contract", input_data={"path": original_image_path}) as span:
-                original_doc = parse_contract_image(
-                    original_image_path,
-                    document_type="original",
-                    trace=trace,
-                )
-                span.update(output={"title": original_doc.title, "sections_count": len(original_doc.sections)})
-            
-            # Step 2: Parse amendment
-            typer.echo(f"[2/5] Parsing amendment: {amendment_image_path}")
-            with trace.span("parse_amendment_contract", input_data={"path": amendment_image_path}) as span:
-                amendment_doc = parse_contract_image(
-                    amendment_image_path,
-                    document_type="amendment",
-                    trace=trace,
-                )
-                span.update(output={"title": amendment_doc.title, "sections_count": len(amendment_doc.sections)})
-            
-            # Step 3: Agent 1 - Contextualization
-            typer.echo("[3/5] Agent 1: Contextualizing documents...")
-            with trace.span("agent1_contextualization", input_data={
-                "original_title": original_doc.title,
-                "amendment_title": amendment_doc.title,
-            }) as span:
-                contextualization = run_contextualization_agent(
-                    original_doc,
-                    amendment_doc,
-                    trace=trace,
-                )
-                span.update(output={
-                    "corresponding_sections_count": len(contextualization.corresponding_sections),
-                    "analysis_notes_length": len(contextualization.analysis_notes),
-                })
-            
-            # Step 4: Agent 2 - Extraction
-            typer.echo("[4/5] Agent 2: Extracting changes...")
-            with trace.span("agent2_extraction", input_data={
-                "sections_to_analyze": len(contextualization.corresponding_sections),
-            }) as span:
-                changes = run_extraction_agent(
-                    contextualization,
-                    trace=trace,
-                )
-                span.update(output={
-                    "sections_changed": changes.sections_changed,
-                    "topics_touched": changes.topics_touched,
-                })
-            
-            # Step 5: Pydantic Validation
-            typer.echo("[5/5] Validating output...")
-            with trace.span("pydantic_validation", input_data={
-                "sections_changed": changes.sections_changed,
-                "topics_touched": changes.topics_touched,
-            }) as span:
-                # Re-validate to ensure output is correct
-                validated_changes = ContractChangeResult.model_validate(changes.model_dump())
-                span.update(output={"validation": "success", "fields_validated": 3})
-            
-            result = ProcessingResult(
-                contract_id=contract_id,
-                status="success",
-                result=validated_changes,
-                error=None,
-                trace_id=trace.trace_id,
-            )
-            
-            typer.echo(f"\n✓ Processing complete. Contract ID: {contract_id}")
-            typer.echo(f"View trace at: {trace.get_trace_url()}")
-            
-        except ValidationError as e:
-            result = ProcessingResult(
-                contract_id=contract_id,
-                status="error",
-                result=None,
-                error=f"Validation error: {e}",
-                trace_id=trace.trace_id,
-            )
-            typer.echo(f"\n✗ Validation Error: {e}", err=True)
-            
-        except Exception as e:
-            result = ProcessingResult(
-                contract_id=contract_id,
-                status="error",
-                result=None,
-                error=str(e),
-                trace_id=trace.trace_id,
-            )
-            typer.echo(f"\n✗ Error: {e}", err=True)
+    # Initialize service with factories
+    parser = ParserFactory.create()
+    contextualization_agent = AgentFactory.create_contextualization_agent()
+    extraction_agent = AgentFactory.create_extraction_agent()
+    
+    service = ContractComparisonService(
+        parser=parser,
+        contextualization_agent=contextualization_agent,
+        extraction_agent=extraction_agent,
+    )
+    
+    # Process with service
+    typer.echo(f"Processing contracts...")
+    typer.echo(f"  Original: {original_image_path}")
+    typer.echo(f"  Amendment: {amendment_image_path}")
+    
+    result = service.compare(
+        original_image_path=original_image_path,
+        amendment_image_path=amendment_image_path,
+        contract_id=contract_id,
+    )
+    
+    if result.status == "success":
+        typer.echo(f"\n✓ Processing complete. Contract ID: {contract_id}")
+        if result.trace_id:
+            typer.echo(f"Trace ID: {result.trace_id}")
+    else:
+        typer.echo(f"\n✗ Error: {result.error}", err=True)
     
     return result
 

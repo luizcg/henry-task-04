@@ -1,7 +1,7 @@
 import pytest
 from pydantic import ValidationError
 
-from src.models import (
+from src.domain.models import (
     ContractChangeResult,
     DocumentStructure,
     ContextualizationResult,
