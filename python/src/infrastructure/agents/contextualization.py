@@ -1,15 +1,31 @@
-"""Contextualization agent implementation."""
-import os
-import json
-from typing import Optional, Any
+"""Contextualization agent implementation using LangChain."""
+from typing import Optional, Any, List
 
-from openai import OpenAI
-from openai import APIError, APIConnectionError, RateLimitError, APITimeoutError
-from pydantic import ValidationError
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
+from pydantic import BaseModel, Field, ValidationError
 
 from src.domain.interfaces import ContextualizationAgent
 from src.domain.models import DocumentStructure, ContextualizationResult
 from src.config.settings import settings
+
+
+class SectionMapping(BaseModel):
+    """Schema for a single section mapping."""
+    original_section: str = Field(description="Section name in the original contract")
+    amendment_section: str = Field(description="Corresponding section in the amendment")
+    status: str = Field(description="Status: modified, added, removed, or unchanged")
+
+
+class ContextualizationOutput(BaseModel):
+    """Schema for the contextualization agent output."""
+    corresponding_sections: List[SectionMapping] = Field(
+        description="List of section mappings between original and amendment"
+    )
+    analysis_notes: str = Field(
+        description="Detailed notes about the document structure and changes"
+    )
 
 
 SYSTEM_PROMPT = """You are Agent 1: Contract Contextualization Specialist.
@@ -22,28 +38,49 @@ Tasks:
 3. Note any new sections added or sections removed
 4. Provide analysis notes about the relationship between documents
 
-Return your response in JSON format:
-{
-    "corresponding_sections": [
-        {
-            "original_section": "Section name in original",
-            "amendment_section": "Corresponding section in amendment",
-            "status": "modified|added|removed|unchanged"
-        }
-    ],
-    "analysis_notes": "Detailed notes about the document structure and changes"
-}
-
 Be thorough and precise. Your analysis will be used by Agent 2 to extract specific changes."""
 
 
-class OpenAIContextualizationAgent(ContextualizationAgent):
-    """Contextualization agent using OpenAI."""
+class LangChainContextualizationAgent(ContextualizationAgent):
+    """Contextualization agent using LangChain."""
     
     def __init__(self, model: Optional[str] = None):
-        """Initialize the agent."""
-        self.model = model or settings.model_name
-        self.client = OpenAI(api_key=settings.openai_api_key)
+        """Initialize the agent with LangChain components."""
+        self.model_name = model or settings.model_name
+        self.llm = ChatOpenAI(
+            model=self.model_name,
+            api_key=settings.openai_api_key,
+            temperature=0,
+            max_tokens=4096,
+        )
+        self.parser = JsonOutputParser(pydantic_object=ContextualizationOutput)
+        
+        self.prompt = ChatPromptTemplate.from_messages([
+            ("system", SYSTEM_PROMPT + "\n\n{format_instructions}"),
+            ("human", """Analyze these two contract documents:
+
+## ORIGINAL CONTRACT
+Title: {original_title}
+Sections: {original_sections}
+
+Full Text:
+{original_text}
+
+---
+
+## AMENDMENT
+Title: {amendment_title}
+Sections: {amendment_sections}
+
+Full Text:
+{amendment_text}
+
+---
+
+Please analyze the structure of both documents and identify corresponding sections."""),
+        ])
+        
+        self.chain = self.prompt | self.llm | self.parser
     
     def run(
         self,
@@ -53,84 +90,49 @@ class OpenAIContextualizationAgent(ContextualizationAgent):
     ) -> ContextualizationResult:
         """Contextualize both documents and identify corresponding sections."""
         
-        # Create generation span for LLM call if trace is available
-        generation = None
-        if trace:
-            generation = trace.generation(
-                name="agent1_llm_call",
-                model=self.model,
-                input_data={
+        # Build callbacks list for Langfuse tracing
+        callbacks = []
+        if trace and hasattr(trace, 'get_langchain_handler'):
+            callbacks.append(trace.get_langchain_handler())
+        
+        config = {"callbacks": callbacks} if callbacks else {}
+        
+        try:
+            result = self.chain.invoke(
+                {
                     "original_title": original_doc.title,
+                    "original_sections": ', '.join(original_doc.sections),
+                    "original_text": original_doc.full_text,
                     "amendment_title": amendment_doc.title,
+                    "amendment_sections": ', '.join(amendment_doc.sections),
+                    "amendment_text": amendment_doc.full_text,
+                    "format_instructions": self.parser.get_format_instructions(),
                 },
-                metadata={"agent": "contextualization"},
+                config=config,
             )
+        except Exception as e:
+            raise RuntimeError(f"LangChain agent error: {e}")
         
-        user_message = f"""Analyze these two contract documents:
-
-## ORIGINAL CONTRACT
-Title: {original_doc.title}
-Sections: {', '.join(original_doc.sections)}
-
-Full Text:
-{original_doc.full_text}
-
----
-
-## AMENDMENT
-Title: {amendment_doc.title}
-Sections: {', '.join(amendment_doc.sections)}
-
-Full Text:
-{amendment_doc.full_text}
-
----
-
-Please analyze the structure of both documents and identify corresponding sections."""
-
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": user_message},
-                ],
-                response_format={"type": "json_object"},
-                max_completion_tokens=4096,
-            )
-        except RateLimitError as e:
-            raise RuntimeError(f"OpenAI rate limit exceeded: {e}")
-        except APITimeoutError as e:
-            raise RuntimeError(f"OpenAI API timeout: {e}")
-        except APIConnectionError as e:
-            raise RuntimeError(f"Failed to connect to OpenAI API: {e}")
-        except APIError as e:
-            raise RuntimeError(f"OpenAI API error: {e}")
-        
-        content = response.choices[0].message.content
-        
-        # End generation span with output and usage
-        if generation:
-            generation.update(
-                output=content[:500],
-                usage_details={
-                    "input": response.usage.prompt_tokens,
-                    "output": response.usage.completion_tokens,
-                },
-            )
-            generation.end()
-        
-        try:
-            parsed = json.loads(content)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"Failed to parse Agent 1 response as JSON: {e}")
+        # Convert to list of dicts for compatibility
+        corresponding_sections = [
+            {
+                "original_section": s.get("original_section", "") if isinstance(s, dict) else s.original_section,
+                "amendment_section": s.get("amendment_section", "") if isinstance(s, dict) else s.amendment_section,
+                "status": s.get("status", "modified") if isinstance(s, dict) else s.status,
+            }
+            for s in result.get("corresponding_sections", [])
+        ]
         
         try:
             return ContextualizationResult(
                 original_structure=original_doc,
                 amendment_structure=amendment_doc,
-                corresponding_sections=parsed.get("corresponding_sections", []),
-                analysis_notes=parsed.get("analysis_notes", ""),
+                corresponding_sections=corresponding_sections,
+                analysis_notes=result.get("analysis_notes", ""),
             )
         except ValidationError as e:
             raise ValueError(f"Invalid contextualization result: {e}")
+
+
+# Alias for backward compatibility
+OpenAIContextualizationAgent = LangChainContextualizationAgent

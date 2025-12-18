@@ -5,6 +5,7 @@ from contextlib import contextmanager
 
 from dotenv import load_dotenv
 from langfuse import get_client, propagate_attributes
+from langfuse.callback import CallbackHandler as LangfuseCallbackHandler
 
 load_dotenv()
 
@@ -110,6 +111,28 @@ class TracingContext:
         """Get the URL to view this trace in Langfuse."""
         host = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
         return f"{host}/trace/{self._trace_id}" if self._trace_id else None
+    
+    def get_langchain_handler(self) -> LangfuseCallbackHandler:
+        """
+        Get a LangChain callback handler for Langfuse tracing.
+        
+        This handler can be passed to LangChain components to automatically
+        trace all LLM calls, chains, and agent executions.
+        
+        Returns:
+            LangfuseCallbackHandler configured with current trace context
+        """
+        return LangfuseCallbackHandler(
+            session_id=self.session_id,
+            user_id=self.contract_pair_id,
+            trace_id=self._trace_id,
+            tags=["contract_comparison", "langchain"],
+            metadata={
+                "contract_pair_id": self.contract_pair_id,
+                "timestamp": self.timestamp,
+                **self.metadata,
+            },
+        )
 
 
 def create_trace(

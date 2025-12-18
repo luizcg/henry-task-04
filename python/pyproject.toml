@@ -12,6 +12,9 @@ dependencies = [
     "openai>=1.40.0",
     "pydantic>=2.0.0",
     "langfuse>=2.0.0",
+    "langchain>=0.3.0",
+    "langchain-openai>=0.2.0",
+    "langchain-core>=0.3.0",
     "python-dotenv>=1.0.0",
     "pillow>=10.0.0",
     "typer>=0.9.0",
@@ -31,6 +34,7 @@ dev = [
 
 [project.scripts]
 contract-agent = "src.main:app"
+contract-api = "src.api_cli:app"
 generate-contracts = "tools.generate_contracts:app"
 
 [tool.setuptools.packages.find]
