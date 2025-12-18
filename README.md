@@ -16,6 +16,47 @@
 
 ---
 
+## 📌 Project Overview
+
+### Main Deliverable: Python AI Agent
+
+**The Python agent (`./python/`) is the core deliverable for Task 4 of the Henry AI Engineering Program.** It implements a complete autonomous contract comparison system meeting all course requirements:
+
+- ✅ **Multimodal LLM Integration**: GPT-5.2 for parsing scanned contract images
+- ✅ **Two-Agent Architecture**: Contextualization Agent → Extraction Agent with explicit handoff
+- ✅ **Pydantic Validation**: Structured output with `sections_changed`, `topics_touched`, and `summary_of_the_change`
+- ✅ **Langfuse Tracing**: Complete observability with hierarchical spans, token counts, and latency metrics
+- ✅ **Standalone CLI**: Fully functional via command line without any dependencies
+
+**The Python agent can be used independently** - see [`./python/README.md`](./python/README.md) for detailed documentation.
+
+### Optional Extra: Ruby on Rails Web Interface
+
+As an **optional enhancement beyond the core requirements**, this repository includes a Ruby on Rails web application (`./ruby/`) that provides:
+
+- **Web-based UI** for uploading contract pairs through a browser
+- **Visual comparison interface** showing original and amendment side-by-side  
+- **Real-time progress updates** via WebSockets (ActionCable)
+- **AWS S3 integration** for cloud storage with pre-signed URLs
+- **PostgreSQL database** for tracking comparison history
+- **Background job processing** with Solid Queue
+
+### Integration Architecture
+
+The Rails frontend integrates with the Python agent via HTTP API:
+
+1. **User uploads** contract images through Rails web interface
+2. **Rails stores** images in AWS S3 and generates pre-signed URLs
+3. **Background job** calls Python agent API (`POST http://localhost:8080/compare`) with S3 URLs
+4. **Python agent** downloads images, processes with GPT-5.2 multi-agent system, returns structured JSON
+5. **Rails displays** comparison results in real-time via WebSocket updates
+
+**Both services can run independently:**
+- Python agent: Standalone CLI or REST API
+- Rails app: Requires Python agent for processing
+
+---
+
 ## The Problem
 
 Legal compliance teams spend **40+ hours weekly** manually comparing contracts and their amendments. This process is:
