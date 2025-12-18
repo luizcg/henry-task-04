@@ -13,6 +13,31 @@
 
 ---
 
+## 📌 Project Context
+
+**This Python agent is the main deliverable for Task 4 of the Henry AI Engineering Program.** It implements a complete autonomous contract comparison system using multimodal LLMs, multi-agent architecture, Pydantic validation, and Langfuse tracing as specified in the course requirements.
+
+### Additional Component: Rails Web Interface (Extra)
+
+As an **optional enhancement beyond the core requirements**, this repository also includes a Ruby on Rails web application (`../ruby/`) that provides:
+
+- **Web-based UI** for uploading contract pairs through a browser
+- **Visual comparison interface** showing original and amendment side-by-side
+- **Integration with Python agent** via HTTP API calls
+- **AWS S3 storage** for contract images with pre-signed URLs
+- **PostgreSQL database** for tracking comparison history
+
+**Integration Flow:**
+1. User uploads contracts through Rails web interface
+2. Rails stores images in AWS S3 and generates pre-signed URLs
+3. Rails calls Python agent API (`http://localhost:8080/compare`) with S3 URLs
+4. Python agent downloads images, processes with GPT-5.2, returns structured results
+5. Rails displays comparison results in the web interface
+
+**Note:** The Rails application is a bonus feature demonstrating production-ready deployment architecture. The core Python agent can be used standalone via CLI without the Rails frontend.
+
+---
+
 ## Overview
 
 A multi-agent system that compares scanned contract images (original and amendment) using multimodal LLMs and extracts structured change information. The system uses two collaborative agents with an explicit handoff mechanism: one for contextualization and another for change extraction, with complete observability through Langfuse tracing.
