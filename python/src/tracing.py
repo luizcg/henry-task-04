@@ -5,7 +5,7 @@ from contextlib import contextmanager
 
 from dotenv import load_dotenv
 from langfuse import get_client, propagate_attributes
-from langfuse.callback import CallbackHandler as LangfuseCallbackHandler
+from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
 
 load_dotenv()
 
