@@ -1,22 +1,19 @@
-"""OpenAI Vision parser implementation using LangChain."""
-from typing import Optional, Any, List
+"""OpenAI Vision parser implementation using direct OpenAI SDK.
 
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_core.output_parsers import JsonOutputParser
-from pydantic import BaseModel, Field, ValidationError
+Note: We use the OpenAI SDK directly for vision/multimodal parsing instead of LangChain
+because it provides more reliable handling of image content with newer models like GPT-5.2.
+"""
+import json
+from typing import Optional, Any
+
+from openai import OpenAI
+from openai import APIError, APIConnectionError, RateLimitError, APITimeoutError
+from pydantic import ValidationError
 
 from src.domain.interfaces import ImageParserStrategy
 from src.domain.models import DocumentStructure
 from src.infrastructure.parsers.base import encode_image_base64, get_image_media_type
 from src.config.settings import settings
-
-
-class DocumentParserOutput(BaseModel):
-    """Schema for the document parser output."""
-    title: str = Field(description="Document title")
-    sections: List[str] = Field(description="List of section headers/titles")
-    full_text: str = Field(description="Complete extracted text with preserved structure")
 
 
 SYSTEM_PROMPT = """You are a legal document parser. Extract the complete text and structure from the provided contract image.
@@ -27,22 +24,23 @@ Your task:
 3. Identify the document title
 4. Maintain the original formatting as much as possible
 
+Return your response in the following JSON format:
+{
+    "title": "Document title",
+    "sections": ["Section 1 Title", "Section 2 Title", ...],
+    "full_text": "Complete extracted text with preserved structure"
+}
+
 Be thorough and accurate. Do not summarize - extract the complete text."""
 
 
-class LangChainVisionParser(ImageParserStrategy):
-    """Image parser using LangChain with OpenAI GPT Vision models."""
+class OpenAIVisionParser(ImageParserStrategy):
+    """Image parser using OpenAI GPT Vision models directly."""
     
     def __init__(self, model: Optional[str] = None):
-        """Initialize the parser with LangChain components."""
-        self.model_name = model or settings.model_name
-        self.llm = ChatOpenAI(
-            model=self.model_name,
-            api_key=settings.openai_api_key,
-            temperature=0,
-            max_tokens=4096,
-        )
-        self.parser = JsonOutputParser(pydantic_object=DocumentParserOutput)
+        """Initialize the parser."""
+        self.model = model or settings.model_name
+        self.client = OpenAI(api_key=settings.openai_api_key)
     
     def parse(
         self,
@@ -50,58 +48,83 @@ class LangChainVisionParser(ImageParserStrategy):
         document_type: str,
         trace: Optional[Any] = None,
     ) -> DocumentStructure:
-        """Parse a contract image using LangChain with OpenAI Vision."""
+        """Parse a contract image using OpenAI Vision."""
         
-        # Build callbacks list for Langfuse tracing
-        callbacks = []
-        if trace and hasattr(trace, 'get_langchain_handler'):
-            callbacks.append(trace.get_langchain_handler())
-        
-        config = {"callbacks": callbacks} if callbacks else {}
+        # Create generation span for LLM call if trace is available
+        generation = None
+        if trace:
+            generation = trace.generation(
+                name=f"parse_{document_type}_llm_call",
+                model=self.model,
+                input_data={"image_path": image_path, "document_type": document_type},
+                metadata={"step": "image_parsing"},
+            )
         
         base64_image = encode_image_base64(image_path)
         media_type = get_image_media_type(image_path)
         
-        # Build messages with image content
-        system_message = SystemMessage(
-            content=SYSTEM_PROMPT + "\n\n" + self.parser.get_format_instructions()
-        )
-        
-        human_message = HumanMessage(
-            content=[
-                {
-                    "type": "text",
-                    "text": f"Parse this {document_type} contract document. Extract all text and identify the structure.",
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:{media_type};base64,{base64_image}",
-                        "detail": "high",
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Parse this {document_type} contract document. Extract all text and identify the structure.",
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": f"data:{media_type};base64,{base64_image}",
+                                    "detail": "high",
+                                },
+                            },
+                        ],
                     },
+                ],
+                response_format={"type": "json_object"},
+                max_completion_tokens=4096,
+            )
+        except RateLimitError as e:
+            raise RuntimeError(f"OpenAI rate limit exceeded. Please wait and retry. Details: {e}")
+        except APITimeoutError as e:
+            raise RuntimeError(f"OpenAI API timeout. The image may be too large. Details: {e}")
+        except APIConnectionError as e:
+            raise RuntimeError(f"Failed to connect to OpenAI API. Check your network. Details: {e}")
+        except APIError as e:
+            raise RuntimeError(f"OpenAI API error: {e}")
+        
+        content = response.choices[0].message.content
+        
+        # End generation span with output and usage
+        if generation:
+            generation.update(
+                output=content[:500],
+                usage_details={
+                    "input": response.usage.prompt_tokens,
+                    "output": response.usage.completion_tokens,
                 },
-            ]
-        )
+            )
+            generation.end()
         
         try:
-            response = self.llm.invoke(
-                [system_message, human_message],
-                config=config,
-            )
-            result = self.parser.parse(response.content)
-        except Exception as e:
-            raise RuntimeError(f"LangChain Vision parser error: {e}")
+            parsed = json.loads(content)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"Failed to parse LLM response as JSON: {e}")
         
         try:
             return DocumentStructure(
-                title=result.get("title", "Unknown"),
-                sections=result.get("sections", []) or ["General"],
-                full_text=result.get("full_text", ""),
+                title=parsed.get("title", "Unknown"),
+                sections=parsed.get("sections", []) or ["General"],
+                full_text=parsed.get("full_text", ""),
                 document_type=document_type,
             )
         except ValidationError as e:
             raise ValueError(f"Invalid document structure from LLM: {e}")
 
 
-# Alias for backward compatibility
-OpenAIVisionParser = LangChainVisionParser
+# Alias for LangChain naming consistency
+LangChainVisionParser = OpenAIVisionParser
