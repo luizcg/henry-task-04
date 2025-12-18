@@ -22,9 +22,10 @@ This solution addresses the challenge faced by legal compliance teams who spend 
 ### Key Features
 
 - **Multimodal Image Parsing**: Uses GPT-5.2 vision capabilities to extract text from contract images with base64 encoding, preserving document hierarchy (sections, subsections, clauses)
+- **LangChain Framework**: Built with LangChain LCEL (LangChain Expression Language) for composable agent chains, prompt templates, and structured output parsing
 - **Two-Agent Collaboration**: Distinct agents with explicit handoff—Agent 1's contextualization output feeds directly into Agent 2's extraction process
 - **Pydantic-Validated Output**: Strict schema enforcement with three guaranteed fields: `sections_changed`, `topics_touched`, and `summary_of_the_change`
-- **Full Observability**: Every step traced in Langfuse with hierarchical spans, token counts, and latency metrics
+- **Full Observability**: Every step traced in Langfuse with hierarchical spans, token counts, and latency metrics via LangChain callbacks
 - **Robust Error Handling**: Graceful handling of API failures, invalid images, and validation errors with meaningful error messages
 - **Flexible Image Quality**: Handles scanned documents, photographs, and various resolutions
 
@@ -352,11 +353,12 @@ classDiagram
 
 | Decision | Rationale |
 |----------|-----------|
+| **LangChain Framework** | Built with LangChain LCEL (LangChain Expression Language) for composable chains (`prompt \| llm \| parser`). Provides structured prompt templates, automatic JSON output parsing with Pydantic schemas, and native Langfuse callback integration. Agents use `ChatOpenAI` + `ChatPromptTemplate` + `JsonOutputParser` pattern. Parser uses OpenAI SDK directly for more reliable vision handling with GPT-5.2. |
 | **GPT-5.2 Multimodal** | Best-in-class vision capabilities for document parsing. Correctly handles scanned documents, photographs, handwritten annotations, and complex table structures. Uses base64 image encoding for reliable API integration. |
 | **Two-Agent Architecture** | Single-agent approaches struggle with complex contract comparisons because they try to understand context and extract changes simultaneously. Our two-agent design separates these concerns: Agent 1 builds understanding, Agent 2 uses it. This mirrors how human legal analysts work and produces more accurate results. |
 | **Explicit Agent Handoff** | Agent 1's output (`ContextualizationResult`) is passed directly as input to Agent 2. This explicit data flow makes the system debuggable and ensures Agent 2 always has the context it needs. |
-| **Pydantic v2** | Schema enforcement with exactly three output fields (`sections_changed`, `topics_touched`, `summary_of_the_change`) ensures downstream systems receive consistent, valid data. Validation errors are caught early with meaningful messages. |
-| **Langfuse Tracing** | Every step is traced with hierarchical spans, enabling full observability. Native Python decorator support (`@observe`) makes integration seamless. Token/cost tracking enables production planning. |
+| **Pydantic v2** | Schema enforcement with exactly three output fields (`sections_changed`, `topics_touched`, `summary_of_the_change`) ensures downstream systems receive consistent, valid data. Validation errors are caught early with meaningful messages. LangChain's `JsonOutputParser` uses these schemas for automatic validation. |
+| **Langfuse Tracing** | Every step is traced with hierarchical spans, enabling full observability. LangChain callbacks automatically capture all LLM interactions. Token/cost tracking enables production planning. |
 | **Environment Variables** | All API keys loaded via `os.getenv()` with no hardcoded secrets. Configuration is externalized for security and flexibility across environments. |
 | **Type Hints Throughout** | All functions include type annotations (e.g., `def parse_image(path: str) -> DocumentStructure`) for better IDE support and self-documenting code. |
 

@@ -24,6 +24,7 @@
 
 - ✅ **Multimodal LLM Integration**: GPT-5.2 for parsing scanned contract images
 - ✅ **Two-Agent Architecture**: Contextualization Agent → Extraction Agent with explicit handoff
+- ✅ **LangChain Framework**: LCEL chains for agent orchestration and prompt management
 - ✅ **Pydantic Validation**: Structured output with `sections_changed`, `topics_touched`, and `summary_of_the_change`
 - ✅ **Langfuse Tracing**: Complete observability with hierarchical spans, token counts, and latency metrics
 - ✅ **Standalone CLI**: Fully functional via command line without any dependencies
@@ -175,6 +176,7 @@ flowchart LR
 |-----------|------------|---------|
 | **Frontend** | Ruby on Rails 8 | Web interface, file uploads, real-time updates |
 | **Backend** | Python 3.10+ | AI agents, document parsing, change extraction |
+| **AI Framework** | LangChain | Agent orchestration, prompt templates, LCEL chains |
 | **AI Model** | OpenAI GPT-5.2 | Multimodal document understanding |
 | **Storage** | AWS S3 | Cloud document storage |
 | **Database** | PostgreSQL | Comparison results, metadata |
